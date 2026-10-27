@@ -3,7 +3,6 @@ local Creator = loadstring(game:HttpGet(
     "https://pastebin.com/raw/0fSnvfGt"
 ))()
 
-local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -25,35 +24,65 @@ local sound = Instance.new("Sound")
 sound.Name = "NightmareDepthSound"
 sound.SoundId = "rbxassetid://138175227296034"
 sound.Volume = 1
+sound.Looped = false
 sound.Parent = SoundService
 
 local effectActive = false
 local shakeName = "NightmareDepthShake"
+local effectId = 0
+
+local function stopEffect()
+    effectActive = false
+    effectId += 1
+
+    RunService:UnbindFromRenderStep(shakeName)
+    sound:Stop()
+
+    TweenService:Create(color, TweenInfo.new(0.3), {
+        TintColor = Color3.fromRGB(255, 255, 255),
+        Brightness = 0,
+        Contrast = 0,
+        Saturation = 0,
+    }):Play()
+
+    TweenService:Create(blur, TweenInfo.new(0.3), {
+        Size = 0,
+    }):Play()
+
+    local thisId = effectId
+
+    task.delay(0.35, function()
+        if not effectActive and effectId == thisId then
+            color.Enabled = false
+        end
+    end)
+end
 
 local function startEffect()
-    if effectActive then return end
+    effectId += 1
+    local thisId = effectId
     effectActive = true
 
     color.Enabled = true
 
-    TweenService:Create(color, TweenInfo.new(1.2), {
+    TweenService:Create(color, TweenInfo.new(0.3), {
         TintColor = Color3.fromRGB(20, 35, 110),
         Brightness = -0.25,
         Contrast = 0.35,
         Saturation = -0.35,
     }):Play()
 
-    TweenService:Create(blur, TweenInfo.new(1.2), {
+    TweenService:Create(blur, TweenInfo.new(0.3), {
         Size = 3,
     }):Play()
 
     sound:Play()
 
-    local started = os.clock()
-    local duration = 4
-    local lastOffset = CFrame.new()
-
     RunService:UnbindFromRenderStep(shakeName)
+
+    local started = os.clock()
+    local duration = 3
+    local lastOffset = CFrame.new()
 
     RunService:BindToRenderStep(
         shakeName,
@@ -62,15 +91,18 @@ local function startEffect()
             local camera = workspace.CurrentCamera
             if not camera then return end
 
+            -- Remove the previous frame's shake offset.
             camera.CFrame = camera.CFrame * lastOffset:Inverse()
 
             local elapsed = os.clock() - started
+
             if elapsed >= duration then
                 lastOffset = CFrame.new()
                 RunService:UnbindFromRenderStep(shakeName)
                 return
             end
 
+            -- Moderate, slightly violent shake.
             local strength = 0.22 * (1 - elapsed / duration)
 
             lastOffset = CFrame.new(
@@ -82,32 +114,16 @@ local function startEffect()
             camera.CFrame = camera.CFrame * lastOffset
         end
     )
-end
 
-local function stopEffect()
-    effectActive = false
-    RunService:UnbindFromRenderStep(shakeName)
-    sound:Stop()
-
-    TweenService:Create(color, TweenInfo.new(1.5), {
-        TintColor = Color3.fromRGB(255, 255, 255),
-        Brightness = 0,
-        Contrast = 0,
-        Saturation = 0,
-    }):Play()
-
-    TweenService:Create(blur, TweenInfo.new(1.5), {
-        Size = 0,
-    }):Play()
-
-    task.delay(1.6, function()
-        if not effectActive then
-            color.Enabled = false
+    -- Restore the effects after 3 seconds.
+    task.delay(3, function()
+        if effectActive and effectId == thisId then
+            stopEffect()
         end
     end)
 end
 
--- NIGHTMARE DEPTH ENTITY
+-- CREATE NIGHTMARE DEPTH
 
 local entity = Creator.createEntity({
     CustomName = "Nightmare Depth",
@@ -176,7 +192,7 @@ local entity = Creator.createEntity({
     },
 })
 
--- ENTITY CALLBACKS
+-- DEBUG CALLBACKS
 
 entity.Debug.OnEntitySpawned = function(entityTable)
     print("Nightmare Depth spawned:", entityTable.Model)
@@ -208,6 +224,6 @@ entity.Debug.OnDeath = function(entityTable)
     warn("Player died to Nightmare Depth.")
 end
 
--- RUN
+-- RUN ENTITY
 
 Creator.runEntity(entity)
